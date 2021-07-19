@@ -1,0 +1,45 @@
+version: '3'
+services:
+  db:
+    image: postgres
+    env_file:
+      - .env
+  rabbitmq:
+    image: rabbitmq
+  celery-worker:
+    build: ./backend/
+    working_dir: /code/backend
+    command: celery -A backend worker -B
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - rabbitmq
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./frontend/:/app/result_build/
+  web:
+    build: ./backend/
+    command: python backend/manage.py runserver 0.0.0.0:8000
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - rabbitmq
+  migrator:
+    build: ./backend/
+    command: python backend/manage.py migrate
+    env_file:
+      - .env
+    depends_on:
+      - db
+  nginx:
+    image: nginx:1.19.3
+    ports:
+      - 80:80
+    volumes:
+      - ./default.conf:/etc/nginx/conf.d/default.conf
+      - ./frontend/build:/usr/share/nginx/html/
